@@ -7,111 +7,96 @@
 
 #include <iostream>
 #include <vector>
+#include <stack>
 #include <unordered_map>
 #include <unordered_set>
-#include <queue>
-#include <stack>
 
 using namespace std;
 
-// Função para encontrar a distância máxima em uma DAG
-int maxDistanceInDAG(unordered_map<int, vector<int>>& graph, int start) {
-    int n = graph.size();
-    vector<int> distance(n, -1);
-    queue<int> q;
-
-    q.push(start);
-    distance[start] = 0;
-
-    while (!q.empty()) {
-        int node = q.front();
-        q.pop();
-
-        for (int neighbor : graph[node]) {
-            if (distance[neighbor] == -1) {
-                distance[neighbor] = distance[node] + 1;
-                q.push(neighbor);
-            }
+void dfs1(unordered_map<int, vector<int>> &graph, int node, stack<int> &order, unordered_set<int> &visited) {
+    visited.insert(node);
+    for (int neighbor : graph[node]) {
+        if (visited.find(neighbor) == visited.end()) {
+            dfs1(graph, neighbor, order, visited);
         }
     }
-
-    return *max_element(distance.begin(), distance.end());
+    order.push(node);
 }
 
-// Função para encontrar todas as SCCs do grafo
-vector<vector<int>> findSCCs(unordered_map<int, vector<int>>& graph) {
-    int n = graph.size();
-    vector<int> disc(n, -1), low(n, -1);
-    stack<int> s;
-    unordered_set<int> inStack;
-    vector<vector<int>> sccs;
-    int time = 0;
-
-    function<void(int)> tarjanSCC = [&](int node) {
-        disc[node] = low[node] = ++time;
-        s.push(node);
-        inStack.insert(node);
-
-        for (int neighbor : graph[node]) {
-            if (disc[neighbor] == -1) {
-                tarjanSCC(neighbor);
-                low[node] = min(low[node], low[neighbor]);
-            } else if (inStack.count(neighbor) > 0) {
-                low[node] = min(low[node], disc[neighbor]);
-            }
+void dfs2(unordered_map<int, vector<int>> &reverseGraph, int node, unordered_set<int> &scc, unordered_set<int> &visited) {
+    visited.insert(node);
+    scc.insert(node);
+    for (int neighbor : reverseGraph[node]) {
+        if (visited.find(neighbor) == visited.end()) {
+            dfs2(reverseGraph, neighbor, scc, visited);
         }
+    }
+}
 
-        if (low[node] == disc[node]) {
-            // Constroir uma nova SCC
-            vector<int> scc;
-            while (true) {
-                int v = s.top();
-                s.pop();
-                inStack.erase(v);
-                scc.push_back(v);
-                if (v == node) break;
-            }
-            sccs.push_back(scc);
-        }
-    };
+int findSCC(unordered_map<int, vector<int>> &graph, unordered_map<int, vector<int>> &reverseGraph, vector<unordered_set<int>> &sccList) {
+    stack<int> order;
+    unordered_set<int> visited;
 
-    for (auto& entry : graph) {
+    // Primeira DFS para obter a ordem topológica
+    for (auto &entry : graph) {
         int node = entry.first;
-        if (disc[node] == -1) {
-            tarjanSCC(node);
+        if (visited.find(node) == visited.end()) {
+            dfs1(graph, node, order, visited);
         }
     }
 
-    return sccs;
+    visited.clear();
+
+    // Segunda DFS para encontrar SCCs
+    while (!order.empty()) {
+        int node = order.top();
+        order.pop();
+
+        if (visited.find(node) == visited.end()) {
+            unordered_set<int> scc;
+            dfs2(reverseGraph, node, scc, visited);
+            sccList.push_back(scc);
+        }
+    }
+
+    return sccList.size();
+}
+
+int maxJumpsSCC(unordered_map<int, vector<int>> &graph, unordered_map<int, vector<int>> &reverseGraph, int n) {
+    vector<unordered_set<int>> sccList;
+    findSCC(graph, reverseGraph, sccList);
+
+    // Calcula o número máximo de saltos considerando o tamanho da maior SCC
+    int maxJumps = 1;  // Inicializa com 1 para o caso de não haver SCCs maiores que 1
+    for (const auto &scc : sccList) {
+        if (scc.size() > 1) {
+            maxJumps = max(maxJumps, static_cast<int>(scc.size()));
+        }
+    }
+
+    return maxJumps;
 }
 
 int main() {
-    int n, m; // n numero de individuos, m numero de relacoes
+    int n, m;
     scanf("%d %d", &n, &m);
 
-    unordered_map<int, vector<int>> graph;
+    if (n < 2 || m <= 0) {
+        return 0;
+    }
 
-    // Preenche o grafo com as relações fornecidas
+    unordered_map<int, vector<int>> graph;
+    unordered_map<int, vector<int>> reverseGraph;
+
     for (int i = 0; i < m; ++i) {
         int x, y;
         scanf("%d %d", &x, &y);
         graph[x].push_back(y);
+        reverseGraph[y].push_back(x);
     }
 
-    vector<vector<int>> sccs = findSCCs(graph);
-    int maxJumpsResult = 0;
+    int maxJumpsResult = maxJumpsSCC(graph, reverseGraph, n);
 
-    // Para cada SCC, calcular a distância máxima dentro da SCC
-    for (const auto& scc : sccs) {
-        int maxDistanceInSCC = 0;
-        for (int node : scc) {
-            int distance = maxDistanceInDAG(graph, node);
-            maxDistanceInSCC = max(maxDistanceInSCC, distance);
-        }
-        maxJumpsResult = max(maxJumpsResult, maxDistanceInSCC);
-    }
-
-    // resultado final
     printf("%d\n", maxJumpsResult);
 
     return 0;
