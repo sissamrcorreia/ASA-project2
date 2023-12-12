@@ -13,22 +13,46 @@
 
 using namespace std;
 
-void dfs1(unordered_map<int, vector<int>> &graph, int node, stack<int> &order, unordered_set<int> &visited) {
-    visited.insert(node);
-    for (int neighbor : graph[node]) {
-        if (visited.find(neighbor) == visited.end()) {
-            dfs1(graph, neighbor, order, visited);
+void dfs1(unordered_map<int, vector<int>> &graph, int start, stack<int> &order, unordered_set<int> &visited) {
+    stack<int> s;
+    s.push(start);
+    visited.insert(start);
+
+    while (!s.empty()) {
+        int current = s.top();
+        bool hasUnvisitedNeighbor = false;
+
+        for (int neighbor : graph[current]) {
+            if (visited.find(neighbor) == visited.end()) {
+                s.push(neighbor);
+                visited.insert(neighbor);
+                hasUnvisitedNeighbor = true;
+                break;
+            }
+        }
+
+        if (!hasUnvisitedNeighbor) {
+            s.pop();
+            order.push(current);
         }
     }
-    order.push(node);
 }
 
-void dfs2(unordered_map<int, vector<int>> &reverseGraph, int node, unordered_set<int> &scc, unordered_set<int> &visited) {
-    visited.insert(node);
-    scc.insert(node);
-    for (int neighbor : reverseGraph[node]) {
-        if (visited.find(neighbor) == visited.end()) {
-            dfs2(reverseGraph, neighbor, scc, visited);
+void dfs2(unordered_map<int, vector<int>> &reverseGraph, int start, unordered_set<int> &scc, unordered_set<int> &visited) {
+    stack<int> s;
+    s.push(start);
+    visited.insert(start);
+
+    while (!s.empty()) {
+        int current = s.top();
+        s.pop();
+        scc.insert(current);
+
+        for (int neighbor : reverseGraph[current]) {
+            if (visited.find(neighbor) == visited.end()) {
+                s.push(neighbor);
+                visited.insert(neighbor);
+            }
         }
     }
 }
@@ -64,14 +88,20 @@ int findSCC(unordered_map<int, vector<int>> &graph, unordered_map<int, vector<in
 
 int maxJumpsSCC(unordered_map<int, vector<int>> &graph, unordered_map<int, vector<int>> &reverseGraph, int n) {
     vector<unordered_set<int>> sccList;
-    findSCC(graph, reverseGraph, sccList);
+    int sccCount = findSCC(graph, reverseGraph, sccList);
 
     // Calcula o número máximo de saltos considerando o tamanho da maior SCC
     int maxJumps = 1;  // Inicializa com 1 para o caso de não haver SCCs maiores que 1
+
     for (const auto &scc : sccList) {
         if (scc.size() > 1) {
             maxJumps = max(maxJumps, static_cast<int>(scc.size()));
         }
+    }
+
+    // Se todas as SCCs têm tamanho 1, atualiza maxJumps para o número total de SCCs
+    if (maxJumps == 1 && sccCount > 1) {
+        maxJumps = sccCount;
     }
 
     return maxJumps;
