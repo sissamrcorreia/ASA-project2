@@ -9,37 +9,33 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 #include <stack>
 
 using namespace std;
 
-// Função para encontrar as SCCs
-void tarjanSCC(int node, unordered_map<int, vector<int>>& graph, vector<int>& disc, vector<int>& low, stack<int>& s, unordered_set<int>& inStack, vector<vector<int>>& sccs, int& time) {
-    disc[node] = low[node] = ++time;
-    s.push(node);
-    inStack.insert(node);
+// Função para encontrar a distância máxima em uma DAG
+int maxDistanceInDAG(unordered_map<int, vector<int>>& graph, int start) {
+    int n = graph.size();
+    vector<int> distance(n, -1);
+    queue<int> q;
 
-    for (int neighbor : graph[node]) {
-        if (disc[neighbor] == -1) {
-            tarjanSCC(neighbor, graph, disc, low, s, inStack, sccs, time);
-            low[node] = min(low[node], low[neighbor]);
-        } else if (inStack.count(neighbor) > 0) {
-            low[node] = min(low[node], disc[neighbor]);
+    q.push(start);
+    distance[start] = 0;
+
+    while (!q.empty()) {
+        int node = q.front();
+        q.pop();
+
+        for (int neighbor : graph[node]) {
+            if (distance[neighbor] == -1) {
+                distance[neighbor] = distance[node] + 1;
+                q.push(neighbor);
+            }
         }
     }
 
-    if (low[node] == disc[node]) {
-    // Constrói uma nova SCC
-        vector<int> scc;
-        while (true) {
-            int v = s.top();
-            s.pop();
-            inStack.erase(v);
-            scc.push_back(v);
-            if (v == node) break;
-        }
-        sccs.push_back(scc);
-    }
+    return *max_element(distance.begin(), distance.end());
 }
 
 // Função para encontrar todas as SCCs do grafo
@@ -51,10 +47,38 @@ vector<vector<int>> findSCCs(unordered_map<int, vector<int>>& graph) {
     vector<vector<int>> sccs;
     int time = 0;
 
+    function<void(int)> tarjanSCC = [&](int node) {
+        disc[node] = low[node] = ++time;
+        s.push(node);
+        inStack.insert(node);
+
+        for (int neighbor : graph[node]) {
+            if (disc[neighbor] == -1) {
+                tarjanSCC(neighbor);
+                low[node] = min(low[node], low[neighbor]);
+            } else if (inStack.count(neighbor) > 0) {
+                low[node] = min(low[node], disc[neighbor]);
+            }
+        }
+
+        if (low[node] == disc[node]) {
+            // Constroir uma nova SCC
+            vector<int> scc;
+            while (true) {
+                int v = s.top();
+                s.pop();
+                inStack.erase(v);
+                scc.push_back(v);
+                if (v == node) break;
+            }
+            sccs.push_back(scc);
+        }
+    };
+
     for (auto& entry : graph) {
         int node = entry.first;
         if (disc[node] == -1) {
-            tarjanSCC(node, graph, disc, low, s, inStack, sccs, time);
+            tarjanSCC(node);
         }
     }
 
@@ -62,7 +86,7 @@ vector<vector<int>> findSCCs(unordered_map<int, vector<int>>& graph) {
 }
 
 int main() {
-    int n, m;
+    int n, m; // n numero de individuos, m numero de relacoes
     scanf("%d %d", &n, &m);
 
     unordered_map<int, vector<int>> graph;
@@ -75,26 +99,19 @@ int main() {
     }
 
     vector<vector<int>> sccs = findSCCs(graph);
-
     int maxJumpsResult = 0;
-    
+
+    // Para cada SCC, calcular a distância máxima dentro da SCC
     for (const auto& scc : sccs) {
-        // Considera apenas as SCCs que não são ciclos (tamanho maior que 1)
-        if (scc.size() > 1) {
-            // Calcula o comprimento do caminho mais longo dentro da SCC
-            int maxDistanceInSCC = 0;
-            for (int node : scc) {
-                for (int neighbor : graph[node]) {
-                    if (find(scc.begin(), scc.end(), neighbor) == scc.end()) {
-                        // O vizinho está fora da SCC
-                        maxDistanceInSCC = max(maxDistanceInSCC, 1);
-                    }
-                }
-            }
-            maxJumpsResult = max(maxJumpsResult, maxDistanceInSCC);
+        int maxDistanceInSCC = 0;
+        for (int node : scc) {
+            int distance = maxDistanceInDAG(graph, node);
+            maxDistanceInSCC = max(maxDistanceInSCC, distance);
         }
+        maxJumpsResult = max(maxJumpsResult, maxDistanceInSCC);
     }
 
+    // resultado final
     printf("%d\n", maxJumpsResult);
 
     return 0;
