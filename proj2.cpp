@@ -4,15 +4,16 @@
 // Cecília Correia - 106827
 // Luísa Fernandes - 102460
 
-
 #include <iostream>
 #include <vector>
 #include <stack>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 
 using namespace std;
 
+// Função DFS para obter a ordem topológica
 void dfs1(unordered_map<int, vector<int>> &graph, int start, stack<int> &order, unordered_set<int> &visited) {
     stack<int> s;
     s.push(start);
@@ -38,6 +39,8 @@ void dfs1(unordered_map<int, vector<int>> &graph, int start, stack<int> &order, 
     }
 }
 
+
+// Função DFS para encontrar as Componentes Fortemente Conectadas (SCCs)
 void dfs2(unordered_map<int, vector<int>> &reverseGraph, int start, unordered_set<int> &scc, unordered_set<int> &visited) {
     stack<int> s;
     s.push(start);
@@ -57,7 +60,9 @@ void dfs2(unordered_map<int, vector<int>> &reverseGraph, int start, unordered_se
     }
 }
 
-int findSCC(unordered_map<int, vector<int>> &graph, unordered_map<int, vector<int>> &reverseGraph, vector<unordered_set<int>> &sccList) {
+
+// Função para encontrar as SCCs em um grafo direcionado
+void findSCCs(unordered_map<int, vector<int>> &graph, unordered_map<int, vector<int>> &reverseGraph, vector<unordered_set<int>> &sccList) {
     stack<int> order;
     unordered_set<int> visited;
 
@@ -82,30 +87,85 @@ int findSCC(unordered_map<int, vector<int>> &graph, unordered_map<int, vector<in
             sccList.push_back(scc);
         }
     }
-
-    return sccList.size();
 }
 
-int maxJumpsSCC(unordered_map<int, vector<int>> &graph, unordered_map<int, vector<int>> &reverseGraph, int n) {
-    vector<unordered_set<int>> sccList;
-    int sccCount = findSCC(graph, reverseGraph, sccList);
 
-    // Calcula o número máximo de saltos considerando o tamanho da maior SCC
-    int maxJumps = 1;  // Inicializa com 1 para o caso de não haver SCCs maiores que 1
+// Função para transformar o grafo em uma DAG, não contamos com saltos de grupos de pessoas que se conhecem mutuamente (ECCs)
+unordered_map<int, vector<int>> makeGraphDAG(unordered_map<int, vector<int>> &graph, const vector<unordered_set<int>> &sccList) {
+    unordered_map<int, vector<int>> dag;
 
-    for (const auto &scc : sccList) {
-        if (scc.size() > 1) {
-            maxJumps = max(maxJumps, static_cast<int>(scc.size()));
+    // Mapeia cada nó para SCC correspondente
+    unordered_map<int, int> nodeToSCC;
+
+    // Preenche o mapeamento nodeToSCC
+    for (int i = 0; i < sccList.size(); ++i) {
+        const unordered_set<int> &scc = sccList[i];
+        for (int node : scc) {
+            nodeToSCC[node] = i;
         }
     }
 
-    // Se todas as SCCs têm tamanho 1, atualiza maxJumps para o número total de SCCs
-    if (maxJumps == 1 && sccCount > 1) {
-        maxJumps = sccCount;
+    // Para cada aresta no grafo original, adiciona uma aresta ao DAG
+    for (auto &entry : graph) {
+        int fromNode = entry.first;
+        for (int toNode : entry.second) {
+            // Verifica se as arestas pertencem a diferentes SCCs
+            if (nodeToSCC[fromNode] != nodeToSCC[toNode]) {
+                dag[nodeToSCC[fromNode]].push_back(nodeToSCC[toNode]);
+            }
+        }
     }
 
-    return maxJumps;
+    return dag;
 }
+
+
+int maxJumpsDAG(unordered_map<int, vector<int>> &dag, int n) {
+    vector<int> inDegree(n, 0);
+
+    // Calcula os pesos de entrada dos nós no DAG
+    for (auto &entry : dag) {
+        for (int neighbor : entry.second) {
+            inDegree[neighbor]++;
+        }
+    }
+
+    // Inicializa uma fila para nós com peso de entrada zero
+    queue<int> zeroWeight;
+
+    for (int i = 0; i < n; ++i) {
+        if (inDegree[i] == 0) {
+            zeroWeight.push(i);
+        }
+    }
+
+    int jumps = 0;
+
+    // Realiza uma procura (BFS) no DAG
+    while (!zeroWeight.empty()) {
+        int size = zeroWeight.size();
+
+        // Processa todos os nós com peso de entrada zero
+        for (int i = 0; i < size; ++i) {
+            int node = zeroWeight.front();
+            zeroWeight.pop();
+
+            for (int neighbor : dag[node]) {
+                inDegree[neighbor]--;
+
+                if (inDegree[neighbor] == 0) {
+                    zeroWeight.push(neighbor);
+                }
+            }
+        }
+
+        jumps++;
+    }
+
+    // Retorna o número total de saltos necessários
+    return jumps;
+}
+
 
 int main() {
     int n, m;
@@ -125,7 +185,15 @@ int main() {
         reverseGraph[y].push_back(x);
     }
 
-    int maxJumpsResult = maxJumpsSCC(graph, reverseGraph, n);
+    // Encontrar SCCs
+    vector<unordered_set<int>> sccList;
+    findSCCs(graph, reverseGraph, sccList);
+
+    // Transformar o grafo em uma DAG
+    unordered_map<int, vector<int>> dag = makeGraphDAG(graph, sccList);
+
+    // Calcular o número máximo de saltos na DAG resultante
+    int maxJumpsResult = maxJumpsDAG(dag, n);
 
     printf("%d\n", maxJumpsResult);
 
