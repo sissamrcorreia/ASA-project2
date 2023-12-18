@@ -195,7 +195,7 @@ int main() {
     // Calcular o número máximo de saltos na DAG resultante
     int maxJumpsResult = maxJumpsDAG(dag, n);
 
-    printf("%d\n", maxJumpsResult);
+    printf("%d\n", maxJumpsResult - 1);
 
     return 0;
 }
