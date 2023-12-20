@@ -13,6 +13,7 @@
 
 using namespace std;
 
+// Função main
 int main() {
     int n, m;
     scanf("%d %d", &n, &m);
@@ -27,7 +28,7 @@ int main() {
         reverseGraph[y].push_back(x);
     }
 
-    // Função DFS para obter a ordem topológica
+    // DFS para obter a ordem topológica
     stack<int> order;
     unordered_set<int> visited1;
 
@@ -59,7 +60,7 @@ int main() {
         }
     }
 
-    // Função DFS para encontrar as Componentes Fortemente Conectadas (SCCs)
+    // DFS para encontrar as Componentes Fortemente Conectadas (SCCs)
     vector<unordered_set<int>> sccList;
     unordered_set<int> visited2;
 
@@ -90,7 +91,7 @@ int main() {
         }
     }
 
-    // Função para transformar o grafo em uma DAG
+    // Transformar o grafo em uma DAG
     unordered_map<int, vector<int>> dag;
 
     unordered_map<int, int> nodeToSCC;
@@ -110,7 +111,7 @@ int main() {
         }
     }
 
-    // Função para calcular o número máximo de saltos na DAG resultante
+    // Calcular o número máximo de saltos na DAG resultante
     vector<int> inDegree(n, 0);
     for (auto &entry : dag) {
         for (int neighbor : entry.second) {
