@@ -7,9 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <stack>
-#include <unordered_map>
-#include <unordered_set>
-#include <queue>
+#include <algorithm>
 
 using namespace std;
 
@@ -18,8 +16,8 @@ int main() {
     int n, m;
     scanf("%d %d", &n, &m);
 
-    unordered_map<int, vector<int>> graph;
-    unordered_map<int, vector<int>> reverseGraph;
+    vector<vector<int>> graph(n + 1);
+    vector<vector<int>> reverseGraph(n + 1);
 
     for (int i = 0; i < m; ++i) {
         int x, y;
@@ -30,23 +28,22 @@ int main() {
 
     // DFS para obter a ordem topológica
     stack<int> order;
-    unordered_set<int> visited1;
+    vector<bool> visited1(n + 1, false);
 
-    for (auto &entry : graph) {
-        int node = entry.first;
-        if (visited1.find(node) == visited1.end()) {
+    for (int i = 1; i <= n; ++i) {
+        if (!visited1[i]) {
             stack<int> s;
-            s.push(node);
-            visited1.insert(node);
+            s.push(i);
+            visited1[i] = true;
 
             while (!s.empty()) {
                 int current = s.top();
                 bool hasUnvisitedNeighbor = false;
 
                 for (int neighbor : graph[current]) {
-                    if (visited1.find(neighbor) == visited1.end()) {
+                    if (!visited1[neighbor]) {
                         s.push(neighbor);
-                        visited1.insert(neighbor);
+                        visited1[neighbor] = true;
                         hasUnvisitedNeighbor = true;
                         break;
                     }
@@ -61,28 +58,28 @@ int main() {
     }
 
     // DFS para encontrar as Componentes Fortemente Conectadas (SCCs)
-    vector<unordered_set<int>> sccList;
-    unordered_set<int> visited2;
+    vector<vector<int>> sccList;
+    vector<bool> visited2(n + 1, false);
 
     while (!order.empty()) {
         int node = order.top();
         order.pop();
 
-        if (visited2.find(node) == visited2.end()) {
+        if (!visited2[node]) {
             stack<int> s;
             s.push(node);
-            visited2.insert(node);
-            unordered_set<int> scc;
+            visited2[node] = true;
+            vector<int> scc;
 
             while (!s.empty()) {
                 int current = s.top();
                 s.pop();
-                scc.insert(current);
+                scc.push_back(current);
 
                 for (int neighbor : reverseGraph[current]) {
-                    if (visited2.find(neighbor) == visited2.end()) {
+                    if (!visited2[neighbor]) {
                         s.push(neighbor);
-                        visited2.insert(neighbor);
+                        visited2[neighbor] = true;
                     }
                 }
             }
@@ -91,65 +88,37 @@ int main() {
         }
     }
 
-    // Transformar o grafo em uma DAG
-    unordered_map<int, vector<int>> dag;
+    // Transformar o grafo em uma semi DAG 
+    vector<vector<int>> dag(n + 1);
 
-    unordered_map<int, int> nodeToSCC;
+    vector<int> nodeToSCC(n + 1);
     for (size_t i = 0; i < sccList.size(); ++i) {
-        const unordered_set<int> &scc = sccList[i];
+        const vector<int>& scc = sccList[i];
         for (int node : scc) {
-            nodeToSCC[node] = i;
+            nodeToSCC[node] = i + 1;  // Ajuste dos índices
         }
     }
 
-    for (auto &entry : graph) {
-        int fromNode = entry.first;
-        for (int toNode : entry.second) {
+    for (int fromNode = 1; fromNode <= n; ++fromNode) {
+        for (int toNode : graph[fromNode]) {
             if (nodeToSCC[fromNode] != nodeToSCC[toNode]) {
                 dag[nodeToSCC[fromNode]].push_back(nodeToSCC[toNode]);
             }
         }
     }
 
-    // Calcular o número máximo de saltos na DAG resultante
-    vector<int> inDegree(n, 0);
-    for (auto &entry : dag) {
-        for (int neighbor : entry.second) {
-            inDegree[neighbor]++;
+    // Calcular o número máximo de saltos
+    vector<int> number(n + 1);
+    for (int i = 1; i <= n; ++i) {
+        for (int entry : dag[i]) {
+            number[entry] = max(number[entry], number[i] + 1);
         }
     }
 
-    queue<int> zeroWeight;
-
-    for (int i = 0; i < n; ++i) {
-        if (inDegree[i] == 0) {
-            zeroWeight.push(i);
-        }
-    }
-
-    int jumps = 0;
-
-    while (!zeroWeight.empty()) {
-        int size = zeroWeight.size();
-
-        for (int i = 0; i < size; ++i) {
-            int node = zeroWeight.front();
-            zeroWeight.pop();
-
-            for (int neighbor : dag[node]) {
-                inDegree[neighbor]--;
-
-                if (inDegree[neighbor] == 0) {
-                    zeroWeight.push(neighbor);
-                }
-            }
-        }
-
-        jumps++;
-    }
+    int jumps = *max_element(number.begin(), number.end()) - *number.begin();
 
     // Imprimir o resultado
-    printf("%d\n", jumps - 1);
+    printf("%d\n", jumps);
 
     return 0;
 }

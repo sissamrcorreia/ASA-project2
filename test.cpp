@@ -1,89 +1,19 @@
+// Projeto 2 - Análise de Sistemas de Algoritmos - 2023
+
+// Grupo: AL002
+// Cecília Correia - 106827
+// Luísa Fernandes - 102460
 #include <iostream>
 #include <vector>
 #include <stack>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 #include <algorithm>
 
 using namespace std;
 
-// Função DFS iterativa para ordenação topológica
-void dfsTopoSort(int start, unordered_map<int, vector<int>> &graph, unordered_set<int> &visited, stack<int> &order) {
-    stack<int> s;
-    s.push(start);
-    visited.insert(start);
-
-    while (!s.empty()) {
-        int current = s.top();
-        bool hasUnvisitedNeighbor = false;
-
-        for (int neighbor : graph[current]) {
-            if (visited.find(neighbor) == visited.end()) {
-                s.push(neighbor);
-                visited.insert(neighbor);
-                hasUnvisitedNeighbor = true;
-                break;
-            }
-        }
-
-        if (!hasUnvisitedNeighbor) {
-            s.pop();
-            order.push(current);
-        }
-    }
-}
-
-// Função DFS iterativa reversa para encontrar SCCs
-void dfsReverse(int start, unordered_map<int, vector<int>> &reverseGraph, unordered_set<int> &visited, vector<int> &scc) {
-    stack<int> s;
-    s.push(start);
-    visited.insert(start);
-
-    while (!s.empty()) {
-        int current = s.top();
-        bool hasUnvisitedNeighbor = false;
-
-        for (int neighbor : reverseGraph[current]) {
-            if (visited.find(neighbor) == visited.end()) {
-                s.push(neighbor);
-                visited.insert(neighbor);
-                hasUnvisitedNeighbor = true;
-                break;
-            }
-        }
-
-        if (!hasUnvisitedNeighbor) {
-            s.pop();
-            scc.push_back(current);
-        }
-    }
-}
-
-int calculateLongestPathBetweenSCCs(unordered_map<int, vector<int>> &graph, vector<vector<int>> &sccs) {
-    int numSCCs = sccs.size();
-    int longestPath = 0;
-
-    for (int i = 0; i < numSCCs; ++i) {
-        for (int j = 0; j < numSCCs; ++j) {
-            if (i != j) {
-                vector<int> &scc_i = sccs[i];
-                vector<int> &scc_j = sccs[j];
-
-                // Verificar se há uma aresta entre as SCCs
-                for (int node_i : scc_i) {
-                    for (int neighbor : graph[node_i]) {
-                        if (find(scc_j.begin(), scc_j.end(), neighbor) != scc_j.end()) {
-                            longestPath = max(longestPath, j - i);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return longestPath;
-}
-
+// Função main
 int main() {
     int n, m;
     scanf("%d %d", &n, &m);
@@ -98,40 +28,100 @@ int main() {
         reverseGraph[y].push_back(x);
     }
 
-    stack<int> topoOrder;
-    unordered_set<int> visited;
+    // DFS para obter a ordem topológica
+    stack<int> order;
+    unordered_set<int> visited1;
 
-    // Encontrar a ordenação topológica
-    for (const auto &entry : graph) {
+    for (auto &entry : graph) {
         int node = entry.first;
-        if (visited.find(node) == visited.end()) {
-            dfsTopoSort(node, graph, visited, topoOrder);
+        if (visited1.find(node) == visited1.end()) {
+            stack<int> s;
+            s.push(node);
+            visited1.insert(node);
+
+            while (!s.empty()) {
+                int current = s.top();
+                bool hasUnvisitedNeighbor = false;
+
+                for (int neighbor : graph[current]) {
+                    if (visited1.find(neighbor) == visited1.end()) {
+                        s.push(neighbor);
+                        visited1.insert(neighbor);
+                        hasUnvisitedNeighbor = true;
+                        break;
+                    }
+                }
+
+                if (!hasUnvisitedNeighbor) {
+                    s.pop();
+                    order.push(current);
+                }
+            }
         }
     }
 
-    // Inicializar SCCs
-    vector<vector<int>> sccs;
+    // DFS para encontrar as Componentes Fortemente Conectadas (SCCs)
+    vector<unordered_set<int>> sccList;
+    unordered_set<int> visited2;
 
-    // Identificar SCCs usando a ordem topológica e o grafo reverso
-    visited.clear();
-    while (!topoOrder.empty()) {
-        int node = topoOrder.top();
-        topoOrder.pop();
+    while (!order.empty()) {
+        int node = order.top();
+        order.pop();
 
-        if (visited.find(node) == visited.end()) {
-            vector<int> scc;
-            dfsReverse(node, reverseGraph, visited, scc);
-            // Inverter a ordem dos nós dentro de cada SCC
-            reverse(scc.begin(), scc.end());
-            sccs.push_back(scc);
+        if (visited2.find(node) == visited2.end()) {
+            stack<int> s;
+            s.push(node);
+            visited2.insert(node);
+            unordered_set<int> scc;
+
+            while (!s.empty()) {
+                int current = s.top();
+                s.pop();
+                scc.insert(current);
+
+                for (int neighbor : reverseGraph[current]) {
+                    if (visited2.find(neighbor) == visited2.end()) {
+                        s.push(neighbor);
+                        visited2.insert(neighbor);
+                    }
+                }
+            }
+
+            sccList.push_back(scc);
         }
     }
 
-    // Calcular o caminho mais longo entre SCCs
-    int longestPath = calculateLongestPathBetweenSCCs(graph, sccs);
+    // Transformar o grafo em uma DAG
+    vector<vector<int>> dag(n + 1);
+    unordered_map<int, int> nodeToSCC;
+    for (size_t i = 0; i < sccList.size(); ++i) {
+        const unordered_set<int> &scc = sccList[i];
+        for (int node : scc) {
+            nodeToSCC[node] = i + 1;  // Ajuste dos índices
+        }
+    }
 
-    // Imprimir o caminho mais longo entre SCCs
-    cout << longestPath + 1 << endl;
+    for (auto &entry : graph) {
+        int fromNode = entry.first;
+        for (int toNode : entry.second) {
+            if (nodeToSCC[fromNode] != nodeToSCC[toNode]) {
+                dag[nodeToSCC[fromNode]].push_back(nodeToSCC[toNode]);
+            }
+        }
+    }
+
+    // Calcular o número máximo de saltos
+    vector<int> number(n + 1);
+    for (int i = 1; i <= n; ++i) {
+        for (int entry : dag[i]) {
+            number[entry] = max(number[entry], number[i] + 1);
+        }
+    }
+
+    int jumps = *max_element(number.begin(), number.end()) - *number.begin();
+
+    // Imprimir o resultado
+    printf("%d\n", jumps);
 
     return 0;
 }
